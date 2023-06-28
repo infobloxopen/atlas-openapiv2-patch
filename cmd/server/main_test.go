@@ -12,13 +12,14 @@ import (
 )
 
 const (
-	succeed           = "\u2713"
-	failed            = "\u2717"
-	red               = "\033[31m"
-	green             = "\033[32m"
-	yellow            = "\033[33m"
-	reset             = "\033[0m"
-	sampleSwaggerFile = "../../internal/testdata/atlaspatch.swagger.json"
+	succeed                = "\u2713"
+	failed                 = "\u2717"
+	red                    = "\033[31m"
+	green                  = "\033[32m"
+	yellow                 = "\033[33m"
+	reset                  = "\033[0m"
+	sampleAtlasSwaggerFile = "../../internal/testdata/atlaspatch.swagger.json"
+	sampleNstarSwaggerFile = "../../internal/testdata/nstar.swagger.json"
 )
 
 func deepCompare(file1, file2 string) (bool, error) {
@@ -55,15 +56,18 @@ func deepCompare(file1, file2 string) (bool, error) {
 		}
 
 		if !bytes.Equal(b1, b2) {
+			fmt.Printf("File1 name%s, Generated contents:\n%s\n-------------\n\nFile2 name (Wanted contents) %s\n",
+				file1, string(b1), file2)
+			fmt.Println()
 			return false, nil
 		}
 	}
 }
 
-func createFiles(fileNames []string) error {
+func createFiles(inFile string, fileNames []string) error {
 	for _, file := range fileNames {
 		var f []byte
-		f, err := ioutil.ReadFile(sampleSwaggerFile)
+		f, err := ioutil.ReadFile(inFile)
 		if err != nil {
 			return err
 		}
@@ -87,12 +91,17 @@ func Test_run(t *testing.T) {
 	type args struct {
 		withPrivate           bool
 		withCustomAnnotations bool
+		withPostResponse      int
+		withPutResponse       int
+		withPatchResponse     int
+		withDeleteResponse    int
 		files                 []string
 	}
 	tests := []struct {
 		name           string
 		args           args
 		wantErr        bool
+		inputFile      string
 		wantFile       string
 		generatedFiles []string
 	}{
@@ -104,6 +113,7 @@ func Test_run(t *testing.T) {
 				withCustomAnnotations: false,
 				files:                 []string{"../../internal/testdata/atlaspatch.emitted.swagger.json"},
 			},
+			inputFile:      sampleAtlasSwaggerFile,
 			wantFile:       "../../internal/testdata/atlaspatch.wanted.swagger.json",
 			generatedFiles: []string{"../../internal/testdata/atlaspatch.emitted.swagger.json"},
 		},
@@ -115,6 +125,7 @@ func Test_run(t *testing.T) {
 				withCustomAnnotations: true,
 				files:                 []string{"../../internal/testdata/atlaspatch.emitted.swagger.json"},
 			},
+			inputFile:      sampleAtlasSwaggerFile,
 			wantFile:       "../../internal/testdata/atlaspatch.wanted.swagger.json",
 			generatedFiles: []string{"../../internal/testdata/atlaspatch.emitted.swagger.json"},
 		},
@@ -126,8 +137,51 @@ func Test_run(t *testing.T) {
 				withCustomAnnotations: false,
 				files:                 []string{"../../internal/testdata/atlaspatch.emitted.swagger.json"},
 			},
+			inputFile:      sampleAtlasSwaggerFile,
 			wantFile:       "../../internal/testdata/atlaspatch.wanted.private.swagger.json",
 			generatedFiles: []string{"../../internal/testdata/atlaspatch.emitted.private.swagger.json"},
+		},
+		{
+			name:    "atlas file - with custom HTTP response codes - use non-default response codes here for testing",
+			wantErr: false,
+			args: args{
+				withPostResponse:   302,
+				withPutResponse:    303,
+				withPatchResponse:  304,
+				withDeleteResponse: 305,
+				files:              []string{"../../internal/testdata/atlaspatch.emitted.customresponses.swagger.json"},
+			},
+			inputFile:      sampleAtlasSwaggerFile,
+			wantFile:       "../../internal/testdata/atlaspatch.wanted.customresponses.swagger.json",
+			generatedFiles: []string{"../../internal/testdata/atlaspatch.emitted.customresponses.swagger.json"},
+		},
+		{
+			name:    "atlas file - with custom HTTP response codes - use 200 response codes for all APIs for testing",
+			wantErr: false,
+			args: args{
+				withPostResponse:   200,
+				withPutResponse:    200,
+				withPatchResponse:  200,
+				withDeleteResponse: 200,
+				files:              []string{"../../internal/testdata/atlaspatch.emitted.customresponses2.swagger.json"},
+			},
+			inputFile:      sampleAtlasSwaggerFile,
+			wantFile:       "../../internal/testdata/atlaspatch.wanted.customresponses2.swagger.json",
+			generatedFiles: []string{"../../internal/testdata/atlaspatch.emitted.customresponses2.swagger.json"},
+		},
+		{
+			name:    "nstar file - with custom HTTP response codes - use 200 response codes for all APIs for testing",
+			wantErr: false,
+			args: args{
+				withPostResponse:   200,
+				withPutResponse:    200,
+				withPatchResponse:  200,
+				withDeleteResponse: 200,
+				files:              []string{"../../internal/testdata/nstar.emitted.swagger.json"},
+			},
+			inputFile:      sampleNstarSwaggerFile,
+			wantFile:       "../../internal/testdata/nstar.wanted.swagger.json",
+			generatedFiles: []string{"../../internal/testdata/nstar.emitted.swagger.json"},
 		},
 	}
 	reg := descriptor.NewRegistry()
@@ -135,7 +189,19 @@ func Test_run(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			reg.SetPrivateOperations(tt.args.withPrivate)
 			reg.SetCustomAnnotations(tt.args.withCustomAnnotations)
-			err := createFiles(tt.args.files)
+			if tt.args.withPostResponse > 0 {
+				reg.SetPostResponse(tt.args.withPostResponse)
+			}
+			if tt.args.withPutResponse > 0 {
+				reg.SetPutResponse(tt.args.withPutResponse)
+			}
+			if tt.args.withPatchResponse > 0 {
+				reg.SetPatchResponse(tt.args.withPatchResponse)
+			}
+			if tt.args.withDeleteResponse > 0 {
+				reg.SetDeleteResponse(tt.args.withDeleteResponse)
+			}
+			err := createFiles(tt.inputFile, tt.args.files)
 			defer deleteFiles(tt.generatedFiles)
 			defer deleteFiles(tt.args.files)
 			if err != nil {
