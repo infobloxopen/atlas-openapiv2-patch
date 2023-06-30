@@ -13,16 +13,16 @@ type Registry struct {
 	// customAnnotations if true, allow custom annotations in the openapi spec
 	customAnnotations bool
 
-	// postResponse if specified, overrides the default response code for POST API
+	// Response code for POST API
 	postResponse int
 
-	// putResponse if specified, overrides the default response code for PUT API
+	// Response code for PUT API
 	putResponse int
 
-	// patchResponse if specified, overrides the default response code for PATCH API
+	// Response code for PATCH API
 	patchResponse int
 
-	// deleteResponse if specified, overrides the default response code for DELETE API
+	// Response code for DELETE API
 	deleteResponse int
 }
 
