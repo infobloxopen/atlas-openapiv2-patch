@@ -232,9 +232,9 @@ The service-defined string used to identify a page of resources. A null value in
 			if op.Responses.StatusCodeResponses != nil {
 				// check if StatusCodeResponses has 201 >= x < 300 then delete 200 and don't go to isNilRef check
 				exists := false
-				defaultResponseCode := 200
+				defaultResponseCodeForMethod := 200
 				if customResponseCode == 200 {
-					defaultResponseCode = DefaultResponseCodesMap[on]
+					defaultResponseCodeForMethod = DefaultResponseCodesMap[on]
 				} else {
 					for code := range op.Responses.StatusCodeResponses {
 						if code >= 201 && code < 300 {
@@ -245,9 +245,9 @@ The service-defined string used to identify a page of resources. A null value in
 				}
 
 				if exists {
-					delete(op.Responses.StatusCodeResponses, defaultResponseCode)
+					delete(op.Responses.StatusCodeResponses, 200)
 				} else {
-					rsp := op.Responses.StatusCodeResponses[defaultResponseCode]
+					rsp := op.Responses.StatusCodeResponses[defaultResponseCodeForMethod]
 
 					if rsp.Schema == nil {
 						if on == "DELETE" {
@@ -256,8 +256,8 @@ The service-defined string used to identify a page of resources. A null value in
 						} else if rsp.Description == "" {
 							rsp.Description = "A successful response."
 						}
-						if op.Responses.StatusCodeResponses[defaultResponseCode].Description != "" {
-							delete(op.Responses.StatusCodeResponses, defaultResponseCode)
+						if op.Responses.StatusCodeResponses[defaultResponseCodeForMethod].Description != "" {
+							delete(op.Responses.StatusCodeResponses, defaultResponseCodeForMethod)
 							op.Responses.StatusCodeResponses[customResponseCode] = rsp
 						}
 					} else if !isNilRef(rsp.Schema.Ref) {
@@ -283,17 +283,17 @@ The service-defined string used to identify a page of resources. A null value in
 								rsp.Schema = nil
 								op.Responses.StatusCodeResponses[customResponseCode] = rsp
 								delete(sw.Definitions, trim(rsp.Ref))
-								delete(op.Responses.StatusCodeResponses, defaultResponseCode)
+								delete(op.Responses.StatusCodeResponses, defaultResponseCodeForMethod)
 								break
 							}
 							sw.Definitions[trim(rsp.Schema.Ref)] = schema
 							refs = append(refs, rsp.Schema.Ref)
-							delete(op.Responses.StatusCodeResponses, defaultResponseCode)
+							delete(op.Responses.StatusCodeResponses, defaultResponseCodeForMethod)
 							op.Responses.StatusCodeResponses[customResponseCode] = rsp
 						default:
 							sw.Definitions[trim(rsp.Schema.Ref)] = schema
 							refs = append(refs, rsp.Schema.Ref)
-							delete(op.Responses.StatusCodeResponses, defaultResponseCode)
+							delete(op.Responses.StatusCodeResponses, defaultResponseCodeForMethod)
 							op.Responses.StatusCodeResponses[customResponseCode] = rsp
 						}
 					}

@@ -65,12 +65,13 @@ func deepCompare(file1, file2 string) (bool, error) {
 }
 
 func createFiles(inFile string, fileNames []string) error {
+	var f []byte
+	f, err := ioutil.ReadFile(inFile)
+	if err != nil {
+		return err
+	}
+
 	for _, file := range fileNames {
-		var f []byte
-		f, err := ioutil.ReadFile(inFile)
-		if err != nil {
-			return err
-		}
 		err = ioutil.WriteFile(file, f, os.FileMode(0666))
 		return err
 	}
