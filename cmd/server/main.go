@@ -13,7 +13,7 @@ import (
 )
 
 func run(reg *descriptor.Registry, swaggerFiles []string) error {
-	fmt.Printf("Atlas openapiv2 patch - Input args: %+v\n", reg)
+	glog.V(1).Infof("Atlas openapiv2 patch - Input args: %+v\n", reg)
 	for _, file := range swaggerFiles {
 		fileName := file
 		var f []byte
