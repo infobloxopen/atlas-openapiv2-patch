@@ -22,7 +22,7 @@ const (
 	jeepSvcInputSwaggerFile    = "../../internal/testdata/jeepsvc.in.swagger.json"
 )
 
-func deepCompare(file1, file2 string) (bool, error) {
+func deepCompare(t *testing.T, file1, file2 string) (bool, error) {
 	const chunkSize = 64000
 
 	f1, err := os.Open(file1)
@@ -56,9 +56,8 @@ func deepCompare(file1, file2 string) (bool, error) {
 		}
 
 		if !bytes.Equal(b1, b2) {
-			fmt.Printf("File1 name%s, Generated contents:\n%s\n-------------\n\nFile2 name (Wanted contents) %s\n",
+			t.Logf("Name of file1 %s, Generated contents:\n%s\n-------------\n\nName of file2 name (Wanted contents) %s\n",
 				file1, string(b1), file2)
-			fmt.Println()
 			return false, nil
 		}
 	}
@@ -215,7 +214,7 @@ func Test_run(t *testing.T) {
 				return
 			}
 
-			isEqual, err := deepCompare(tt.generatedFiles[0], tt.wantFile)
+			isEqual, err := deepCompare(t, tt.generatedFiles[0], tt.wantFile)
 			if err != nil {
 				t.Errorf("Emitted vs wanted files content comparison error: %v", err)
 				return
