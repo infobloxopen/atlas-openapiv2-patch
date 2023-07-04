@@ -16,6 +16,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"strings"
 
@@ -28,9 +29,25 @@ const (
 	exampleAnnotation = "@example"
 )
 
+const (
+	DefaultGetResponse    = 200
+	DefaultPostResponse   = 201
+	DefaultPutResponse    = 201
+	DefaultPatchResponse  = 201
+	DefaultDeleteResponse = 204
+)
+
 var (
 	sw       spec.Swagger
 	seenRefs = map[string]bool{}
+
+	DefaultResponseCodesMap = map[string]int{
+		"GET":    DefaultGetResponse,
+		"POST":   DefaultPostResponse,
+		"PUT":    DefaultPutResponse,
+		"PATCH":  DefaultPatchResponse,
+		"DELETE": DefaultDeleteResponse,
+	}
 )
 
 // filterPathVars returns new params list with: required "true" and path "in" variables only if they present
@@ -46,7 +63,9 @@ func filterPathVars(path string, params []spec.Parameter) []spec.Parameter {
 	return newParams
 }
 
-func AtlasSwagger(b []byte, withPrivateMethods, withCustomAnnotations bool) string {
+func AtlasSwagger(b []byte, withPrivateMethods, withCustomAnnotations bool,
+	responseCodesMap map[string]int) string {
+
 	if err := json.Unmarshal(b, &sw); err != nil {
 		glog.V(1).Infof("error parsing JSON: %v\n", err)
 		os.Exit(1)
@@ -207,21 +226,41 @@ The service-defined string used to identify a page of resources. A null value in
 			}
 			op.Parameters = fixedParams
 
+			customResponseCode := responseCodesMap[on]
+
 			// Wrap responses
 			if op.Responses.StatusCodeResponses != nil {
 				// check if StatusCodeResponses has 201 >= x < 300 then delete 200 and don't go to isNilRef check
 				exists := false
-				for code := range op.Responses.StatusCodeResponses {
-					if code >= 201 && code < 300 {
-						exists = true
+				defaultResponseCodeForMethod := 200
+				if customResponseCode == 200 {
+					defaultResponseCodeForMethod = DefaultResponseCodesMap[on]
+				} else {
+					for code := range op.Responses.StatusCodeResponses {
+						if code >= 201 && code < 300 {
+							exists = true
+						}
+						break
 					}
-					break
 				}
+
 				if exists {
 					delete(op.Responses.StatusCodeResponses, 200)
 				} else {
-					rsp := op.Responses.StatusCodeResponses[200]
-					if !isNilRef(rsp.Schema.Ref) {
+					rsp := op.Responses.StatusCodeResponses[defaultResponseCodeForMethod]
+
+					if rsp.Schema == nil {
+						if on == "DELETE" {
+							// Always overwrite for the Delete case
+							rsp.Description = http.StatusText(customResponseCode)
+						} else if rsp.Description == "" {
+							rsp.Description = "A successful response."
+						}
+						if op.Responses.StatusCodeResponses[defaultResponseCodeForMethod].Description != "" {
+							delete(op.Responses.StatusCodeResponses, defaultResponseCodeForMethod)
+							op.Responses.StatusCodeResponses[customResponseCode] = rsp
+						}
+					} else if !isNilRef(rsp.Schema.Ref) {
 						s, _, err := rsp.Schema.Ref.GetPointer().Get(sw)
 						if err != nil {
 							panic(err)
@@ -239,22 +278,23 @@ The service-defined string used to identify a page of resources. A null value in
 
 						switch on {
 						case "DELETE":
+							rsp.Description = http.StatusText(customResponseCode)
 							if len(def.Properties) == 0 {
-								rsp.Description = "No Content"
 								rsp.Schema = nil
-								op.Responses.StatusCodeResponses[opToStatusCode(on)] = rsp
+								op.Responses.StatusCodeResponses[customResponseCode] = rsp
 								delete(sw.Definitions, trim(rsp.Ref))
-								delete(op.Responses.StatusCodeResponses, 200)
+								delete(op.Responses.StatusCodeResponses, defaultResponseCodeForMethod)
 								break
 							}
 							sw.Definitions[trim(rsp.Schema.Ref)] = schema
 							refs = append(refs, rsp.Schema.Ref)
-							op.Responses.StatusCodeResponses[200] = rsp
+							delete(op.Responses.StatusCodeResponses, defaultResponseCodeForMethod)
+							op.Responses.StatusCodeResponses[customResponseCode] = rsp
 						default:
 							sw.Definitions[trim(rsp.Schema.Ref)] = schema
 							refs = append(refs, rsp.Schema.Ref)
-							delete(op.Responses.StatusCodeResponses, 200)
-							op.Responses.StatusCodeResponses[opToStatusCode(on)] = rsp
+							delete(op.Responses.StatusCodeResponses, defaultResponseCodeForMethod)
+							op.Responses.StatusCodeResponses[customResponseCode] = rsp
 						}
 					}
 				}
@@ -484,26 +524,6 @@ func pathItemAsMap(pi spec.PathItem) map[string]*spec.Operation {
 		"DELETE": pi.Delete,
 		"PATCH":  pi.Patch,
 	}
-}
-
-func opToStatusCode(on string) int {
-	return map[string]int{
-		"GET":    200,
-		"POST":   201,
-		"PUT":    201,
-		"PATCH":  201,
-		"DELETE": 204,
-	}[on]
-}
-
-func opToTextCode(on string) string {
-	return map[string]string{
-		"GET":    "OK",
-		"POST":   "CREATED",
-		"PUT":    "UPDATED",
-		"PATCH":  "UPDATED",
-		"DELETE": "DELETED",
-	}[on]
 }
 
 func IsStringInSlice(slice []string, str string) bool {
