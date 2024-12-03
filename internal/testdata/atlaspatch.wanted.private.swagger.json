@@ -193,6 +193,12 @@
             "description": "\n\nThe service-defined string used to identify a page of resources. A null value indicates the first page.\n\n\t\t\t\t\t\t\t",
             "name": "_page_token",
             "in": "query"
+          },
+          {
+            "type": "boolean",
+            "description": "\n\nThis parameter controls whether the total record count is included in the response. If not specified, it defaults to false.\n\n\t\t\t\t\t\t\t",
+            "name": "_is_total_size_needed",
+            "in": "query"
           }
         ],
         "responses": {
