@@ -14,5 +14,11 @@
 # Dependency directories (remove the comment below to include it)
 vendor/
 
+# goland IDE stuff
+/.idea
+
+# Mac specific files
+.DS_Store
+
 **/*.emitted.swagger.json
 **/*.emitted.private.swagger.json

@@ -197,6 +197,11 @@ The integer number of resources to be returned in the response. The service may 
 The service-defined string used to identify a page of resources. A null value indicates the first page.
 
 							`).Typed("string", ""),
+							*(spec.QueryParam("_is_total_size_needed")).WithDescription(`
+
+This parameter controls whether the total record count is included in the response. If not specified, it defaults to false.
+
+							`).Typed("boolean", ""),
 						)
 					// Skip ID
 					default:
